@@ -1,174 +1,153 @@
-# J.A.R.V.I.S. — versión web para Streamlit
+# JARVIS en Streamlit con Supabase
 
-Agente económico con Groq, 21 indicadores del Banco Mundial, deuda del FMI, divisas,
-criptoactivos y memoria por conversación. La página usa fondo oscuro, texto blanco,
-acentos celestes y amarillos, y las tipografías Oxanium y Space Grotesk.
+Esta versión conecta obligatoriamente con Supabase. Usa la tabla `jarvis_messages`,
+lee el historial de la conversación y guarda pregunta y respuesta juntas.
+Si falta la configuración o falla Supabase, muestra un error claro. No sustituye
+silenciosamente la base de datos por memoria temporal.
 
-## Desplegar en tu flujo de GitHub → Streamlit
+## 1. Prepara los archivos
 
-1. Descomprime el paquete. Sube **el contenido de `jarvis_streamlit`** a un repositorio,
-   conservando `assets`, `sql` y `.streamlit`. No subas el ZIP como único archivo.
-2. Coloca tu imagen **`JARVIS.png` junto a `app.py`**, con esas mayúsculas exactas.
-   Se muestra arriba, centrada y enlazada al inicio del chat. El paquete no contiene
-   tu imagen; mientras la añades, aparece un emblema tipográfico J.
-3. En Streamlit Community Cloud selecciona el repositorio y su rama, con
-   **Main file path: `app.py`**. Selecciona **Python 3.12** en Advanced settings.
-   Si subiste la carpeta entera como subcarpeta, ajusta el archivo principal a
-   `jarvis_streamlit/app.py`; es preferible usar su contenido en la raíz.
-4. En **Advanced settings → Secrets** (o Settings → Secrets tras desplegar), pega:
+Descomprime el ZIP. Usa juntos los archivos de la carpeta `jarvis_streamlit` y sube
+su contenido a la raíz de tu repositorio. Conserva las carpetas `assets`, `sql` y
+`.streamlit`.
 
-   ```toml
-   GROQ_API_KEY = "TU_CLAVE_GROQ"
-   GROQ_MODEL = "openai/gpt-oss-120b"
-   ```
+El archivo de entrada es **app.py**. El `JARVIS.py` de consola se mantiene aparte;
+esta versión web utiliza `jarvis_agent.py` para generar las respuestas.
 
-5. Pulsa **Deploy**. Streamlit instala `requirements.txt` y ejecuta la web.
-   El chat ya funciona con memoria durante la sesión, aun sin Supabase. [1–3]
+Coloca tu imagen **JARVIS.png** al lado de `app.py`, respetando mayúsculas.
+La imagen no venía adjunta y no se incluye. Mientras la añades aparece una J.
 
-Las claves se configuran en Secrets, no en el código que subes a GitHub.
-`secrets.toml.example` es una plantilla, no un archivo con credenciales reales.
-No subas `.env` ni `.streamlit/secrets.toml`. El `.gitignore` incluido los excluye,
-pero no protege archivos que ya estuvieran registrados en un repositorio. [2]
+## 2. Prepara la tabla de Supabase
 
-## Conservar el historial en Supabase
+Entra al mismo proyecto donde ya tienes `jarvis_messages`:
 
-Si quieres mantener el guardado que ya configuraste:
+1. Abre **SQL Editor** y crea una consulta con **New query**.
+2. Copia todo el contenido de **sql/supabase_sessions.sql**.
+3. Pégalo y pulsa **Run**.
 
-1. Ejecuta una vez **`sql/supabase_sessions.sql`** en el SQL Editor de tu proyecto.
-   Crea la tabla si falta o añade `session_id` a la que ya existe, sin borrar filas.
-2. Añade a los Secrets de Streamlit:
+Si la tabla existe, el script conserva sus datos. Añade la columna `session_id`,
+crea un índice y mantiene RLS habilitado. Si la tabla falta, la crea.
 
-   ```toml
-   SUPABASE_URL = "https://TU_PROYECTO.supabase.co"
-   SUPABASE_KEY = "TU_CLAVE_SECRET_DE_BACKEND"
-   ```
+En tu tabla existente, la modificación de estructura es:
 
-La clave secreta permanece en el servidor Python. Nunca se envía al navegador ni se
-incluye en la imagen, CSS o respuestas del agente. RLS se conserva habilitado. La
-memoria de esta web filtra por un UUID de conversación generado en el servidor;
-no consulta todo el historial como la versión original de consola. [4]
-
-**Alcance de la memoria:** cada pestaña/sesión de Streamlit tiene su conversación.
-Los mensajes se conservan durante las interacciones y pueden guardarse en Supabase.
-Recargar la página, abrir otra pestaña o pulsar «Nueva conversación» puede iniciar
-una sesión nueva. No se implementa recuperación de conversaciones entre dispositivos
-ni inicio de sesión individual. Las filas antiguas, sin `session_id`, no se asignan
-automáticamente a ningún visitante. «Nueva conversación» no borra datos de Supabase.
-
-La configuración presupone una tabla con `role`, `content` y `created_at`, como la
-que utilizaba el código original. Si modificaste esas columnas, adapta la migración.
-Si Supabase falla, la conversación sigue en la sesión y aparece un aviso de que no
-se pudo guardar permanentemente. Los mensajes fallidos no se reenvían a la base de
-datos automáticamente. La migración no modifica políticas públicas preexistentes.
-
-## Proteger tu prototipo
-
-Opcionalmente agrega una contraseña de acceso en Secrets:
-
-```toml
-APP_PASSWORD = "UNA_CONTRASENA_LARGA_ELEGIDA_POR_TI"
+```sql
+alter table public.jarvis_messages
+add column if not exists session_id uuid;
 ```
 
-La pantalla de acceso se evalúa antes de crear los clientes. Si omites esta variable,
-la aplicación permite consultar a quienes tengan acceso a su URL y las llamadas se
-cargan a tu cuenta Groq. La contraseña compartida es una barrera básica para el
-prototipo: no sustituye un sistema de usuarios con recuperación, MFA o límites por
-cuenta. Esta versión no impone cuotas por visitante.
+La tabla usada por el código necesita estas columnas:
 
-## Qué cambió respecto a la consola
-
-| Archivo | Función |
+| Columna | Uso |
 |---|---|
-| `app.py` | Entrada web, interfaz, sesiones, chat, consultas rápidas y descarga del diálogo. |
-| `jarvis_agent.py` | Cliente Groq y selección automática de las seis herramientas. |
-| `JARVISTools.py` | Consultas externas con fecha, unidad y fuente. |
-| `basic_memory.py` | Memoria separada por conversación y persistencia opcional. |
-| `catalogo.py` | Rubros, etiquetas, países e indicadores. |
-| `assets/style.css` | Tipografía, colores, detalles tecnológicos y adaptación a móvil. |
-| `.streamlit/config.toml` | Tema oscuro y texto blanco. |
-| `.streamlit/secrets.toml.example` | Plantilla para Secrets. |
-| `requirements.txt` | Versiones de las dependencias usadas en la verificación local. |
-| `sql/supabase_sessions.sql` | Adaptación de la tabla para la web. |
+| role | `user` para tu pregunta y `assistant` para la respuesta. |
+| content | Texto del mensaje. |
+| created_at | Fecha y hora del mensaje. |
+| session_id | Identificador que separa conversaciones. |
 
-El `while True` / `input()` original se reemplaza por `st.chat_input`, `st.chat_message`
-y estado de sesión. No debes importar el `JARVIS.py` original desde la web, porque
-su bucle de consola bloquearía la ejecución. Los archivos de este paquete forman
-una versión web independiente. [1]
+El script también define `id` cuando crea una tabla nueva. No cambia el tipo de
+`id` de tu tabla existente. Los mensajes anteriores sin `session_id` siguen en la
+base, pero no se muestran a los visitantes de una conversación nueva.
 
-## Rubros incluidos
+## 3. Ten a mano las tres variables
 
-- **Producción y crecimiento:** PIB, PIB por habitante y crecimiento del PIB.
-- **Precios y empleo:** inflación y desempleo.
-- **Finanzas públicas:** deuda del gobierno central (Banco Mundial), deuda del
-  gobierno general (FMI), impuestos y gasto educativo.
-- **Sector externo:** remesas, exportaciones, importaciones, cuenta corriente,
-  inversión extranjera y deuda externa.
-- **Inversión y consumo:** formación de capital, capital fijo, ahorro bruto,
-  consumo de los hogares y del gobierno.
-- **Población:** habitantes y crecimiento poblacional.
-- **Divisas:** tipo de cambio entre monedas, con acceso rápido dólar/quetzal.
-- **Criptoactivos:** bitcoin, ethereum, solana y dogecoin.
+- **GROQ_API_KEY:** tu clave de Groq que ya utilizabas.
+- **SUPABASE_URL:** URL de tu proyecto, con formato `https://...supabase.co`;
+  puedes copiarla desde el diálogo **Connect** del proyecto.
+- **SUPABASE_KEY:** clave **Secret** (`sb_secret_...`) de ese mismo proyecto,
+  disponible en **Settings → API Keys**. Si ya configuraste una clave `service_role`
+  que funciona, esta aplicación también puede usarla. [1]
 
-Puedes escribir el país directamente en el chat. El explorador incluye países
-frecuentes y admite otro código ISO alpha-3. Los datos se solicitan cuando preguntas;
-no se cargan 21 indicadores cada vez que se redibuja la interfaz.
+La clave secreta se usa solo en el servidor Python de Streamlit. Tiene permisos
+amplios y omite RLS: consérvala en Secrets, sin publicarla en GitHub ni incluirla en
+archivos que distribuyas. No necesitas desactivar RLS ni crear políticas de acceso
+público para esta versión. [1]
 
-## Respuestas y límites de las fuentes
+## 4. Configura Streamlit
 
-- El Banco Mundial devuelve el último valor no vacío disponible y su año.
-  «Último publicado» puede corresponder a un período anterior al actual.
-- La deuda FMI/WEO usa el último año disponible que no sea futuro y advierte que
-  puede ser una estimación. No se confunde con la cobertura de gobierno central.
-- ExchangeRate-API devuelve una referencia; no se presenta como cotización oficial
-  de Banguat ni como precio de compra o venta de un banco.
-- Frankfurter puede no cubrir algunas monedas. El agente puede usar otra herramienta.
-- La API pública de CoinGecko puede limitar llamadas. Se informa el error en lugar
-  de inventar un precio.
-- Las herramientas actuales consultan últimos valores; no descargan series históricas
-  completas ni hacen pronósticos propios. Las explicaciones del modelo pueden
-  requerir revisión. Se solicita citar fuentes en formato Vancouver.
-- El contexto del modelo conserva los últimos 20 mensajes; la interfaz muestra hasta
-  100. Hay un límite de consultas a herramientas por respuesta para evitar bucles.
+Al desplegar desde tu repositorio:
 
-## Ejecución local
+- **Main file path:** `app.py`.
+- **Python version:** `3.12`.
+- **Advanced settings → Secrets:** pega lo siguiente, sustituyendo los tres valores:
 
-En la carpeta del proyecto, con tu entorno virtual activado:
+```toml
+GROQ_API_KEY = "TU_CLAVE_GROQ"
+SUPABASE_URL = "https://TU_PROYECTO.supabase.co"
+SUPABASE_KEY = "TU_CLAVE_SECRETA_SUPABASE"
+```
+
+Si la app ya existe, abre **Settings → Secrets**, pega las mismas variables y guarda.
+Los nombres van exactamente así y los valores entre comillas. No uses secciones
+como `[supabase]`; este código lee las tres variables en la raíz del archivo. [2]
+
+Pulsa **Deploy**. Si ya estaba desplegada, guarda los cambios y recarga la app.
+Streamlit instala las dependencias de `requirements.txt`. No hace falta subir tu
+`.env` ni activar tu entorno virtual de Windows en Streamlit. [2,3]
+
+## 5. Comprueba el guardado real
+
+1. Abre la web. Si la lectura inicial funciona, al pie aparecerá
+   **Historial leído desde Supabase.**
+2. Escribe una pregunta de prueba y espera la respuesta.
+3. Después del guardado aparecerá **Historial guardado en Supabase.**
+4. En Supabase abre **Table Editor → jarvis_messages** y actualiza la vista.
+5. Comprueba las dos filas más recientes: una con `role = user` y otra con
+   `role = assistant`. Ambas deben tener el mismo `session_id` y el texto de tu prueba.
+
+Esta prueba confirma la conexión de escritura, no solo la creación del cliente.
+Crear un cliente Supabase por sí solo no demuestra que una inserción funcione. [4]
+
+## Cómo queda la memoria
+
+Los mensajes se guardan en Supabase y no se borran cuando cierras la web.
+Durante la conversación, JARVIS usa los últimos 20 mensajes como contexto.
+Cada sesión de Streamlit tiene un identificador propio. Al recargar, abrir otra
+pestaña o pulsar **Nueva conversación**, puede comenzar otra conversación.
+
+No se implementa recuperación de chats entre dispositivos ni cuentas de usuario.
+Esto evita que una persona vea el historial de otra, sin añadir un sistema de login.
+El filtro de sesión se aplica en el backend; no se comparte un cache global.
+
+## Si aparece un error
+
+| Error | Qué revisar |
+|---|---|
+| Faltan variables en Secrets | Pega las tres variables con los nombres exactos. |
+| No se pudo leer el historial | Comprueba URL, clave del mismo proyecto y tabla con `session_id`. |
+| `session_id` no existe | Ejecuta el archivo SQL del paso 2. |
+| Error RLS / `42501` al guardar | Revisa que uses la clave secreta de backend y los permisos de la tabla. |
+| Responde pero no confirma el guardado | Revisa Table Editor antes de repetir: una interrupción de red puede impedir confirmar una escritura que sí llegó. |
+| No aparece la imagen | Verifica `JARVIS.png` junto a `app.py` y sus mayúsculas. |
+
+La aplicación no imprime tus claves ni muestra excepciones completas a los visitantes.
+
+## Prueba local, si la necesitas
+
+Con tu entorno virtual activado, dentro de la carpeta del proyecto:
 
 ```bash
 python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-Completa `.streamlit/secrets.toml` a partir de su plantilla, o usa un `.env` local.
-Los Secrets tienen prioridad sobre `.env`. No ejecutes `python app.py`: utiliza
-el comando de Streamlit.
+Localmente admite tu `.env` con las mismas tres variables. En Streamlit Cloud usa
+**Secrets**. Si configuras ambos, Secrets tiene prioridad. El `.gitignore` incluido
+excluye `.env` y `.streamlit/secrets.toml`.
 
-## Funcionamiento después del despliegue
+## Opciones que puedes dejar para después
 
-La app se ejecuta en Streamlit: tu computadora no necesita permanecer encendida.
-El usuario envía una pregunta y el agente elige las herramientas, consulta las
-fuentes y responde. Al actualizar la rama desplegada en GitHub, Streamlit refleja
-los cambios y reinstala dependencias si cambias `requirements.txt`. [3]
+El modelo predeterminado es `openai/gpt-oss-120b`; no necesitas configurar nada más.
+Puedes restringir el acceso al prototipo añadiendo `APP_PASSWORD` en Secrets.
+Si la omites, quienes tengan acceso a la página podrán hacer consultas que usarán
+tu cuenta Groq. La contraseña compartida no equivale a cuentas individuales.
 
-Esto no programa tareas ni ejecuta consultas en segundo plano. Community Cloud
-puede hibernar la app tras inactividad y mostrar un botón para reactivarla. [3]
-
-## Si algo falla
-
-| Mensaje o síntoma | Revisión |
-|---|---|
-| Falta `GROQ_API_KEY` | Configura Secrets en la app correcta y guarda. |
-| Error de autenticación Groq | Revisa que la clave siga activa y esté copiada sin espacios. |
-| Límite de consultas | Espera y revisa los límites de tu cuenta Groq. |
-| No guarda permanentemente | Revisa el SQL de sesiones, URL y clave secreta del proyecto Supabase. |
-| No aparece tu imagen | Sube `JARVIS.png` junto a `app.py`, con ese nombre exacto. |
-| Se ve sin tipografía especial | Las fuentes de Google no cargaron; funciona con la alternativa local sans-serif. |
-| La app carga la consola anterior | Cambia Main file path a `app.py`. |
+El diseño oscuro, el texto blanco, los rubros y las herramientas económicas se
+mantienen. Los datos se consultan al recibir preguntas; no hay tareas programadas.
+Al actualizar la rama desplegada en GitHub, Streamlit actualiza la app. [3]
 
 ## Referencias
 
-1. Streamlit. Build a basic LLM chat app [Internet]. [citado 5 oct 2026]. Disponible en: https://docs.streamlit.io/develop/tutorials/chat-and-llm-apps/build-conversational-apps
+1. Supabase. API keys [Internet]. [citado 5 oct 2026]. Disponible en: https://supabase.com/docs/guides/getting-started/api-keys
 2. Streamlit. Secrets management for your Community Cloud app [Internet]. [citado 5 oct 2026]. Disponible en: https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management
 3. Streamlit. Manage your app [Internet]. [citado 5 oct 2026]. Disponible en: https://docs.streamlit.io/deploy/streamlit-community-cloud/manage-your-app
-4. Supabase. API keys [Internet]. [citado 5 oct 2026]. Disponible en: https://supabase.com/docs/guides/getting-started/api-keys
-5. Groq. Supported models [Internet]. [citado 5 oct 2026]. Disponible en: https://console.groq.com/docs/models
+4. Supabase. Python: Initializing [Internet]. [citado 5 oct 2026]. Disponible en: https://supabase.com/docs/reference/python/initializing

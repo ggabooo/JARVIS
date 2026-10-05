@@ -77,13 +77,28 @@ if password and not st.session_state.get("access_ok"):
     st.stop()
 
 api_key = setting("GROQ_API_KEY")
+supabase_url = setting("SUPABASE_URL")
+supabase_key = setting("SUPABASE_KEY")
+missing = [name for name, value in (
+    ("GROQ_API_KEY", api_key), ("SUPABASE_URL", supabase_url), ("SUPABASE_KEY", supabase_key)
+) if not value]
+if missing:
+    render_hero()
+    st.error("Configura estas variables en Secrets: " + ", ".join(missing))
+    st.stop()
+
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid4())
 if "memory" not in st.session_state:
-    st.session_state.memory = BasicMemory(
-        st.session_state.session_id, max_messages=20,
-        supabase_url=setting("SUPABASE_URL"), supabase_key=setting("SUPABASE_KEY"),
-    )
+    try:
+        st.session_state.memory = BasicMemory(
+            st.session_state.session_id, max_messages=20,
+            supabase_url=supabase_url, supabase_key=supabase_key,
+        )
+    except Exception:
+        render_hero()
+        st.error("No se pudo leer el historial de Supabase. Revisa SUPABASE_URL, SUPABASE_KEY y que la tabla jarvis_messages tenga la columna session_id. Ejecuta el SQL incluido y vuelve a cargar la página.")
+        st.stop()
 if "messages" not in st.session_state:
     st.session_state.messages = st.session_state.memory.messages()
 
@@ -127,9 +142,6 @@ with st.sidebar:
             st.rerun()
 
 render_hero()
-
-if not api_key:
-    st.info("La interfaz está lista. Configura GROQ_API_KEY en los Secrets de la aplicación para activar las respuestas.")
 
 quick_area = st.empty()
 if not st.session_state.messages:
@@ -176,13 +188,6 @@ if prompt and api_key:
                     prompt, st.session_state.memory.messages(), on_status=lambda label: status.update(label=label))
                 status.update(label="Consulta completada", state="complete")
             st.markdown(answer)
-        st.session_state.memory.add_turn(prompt, answer)
-        st.session_state.messages.extend([
-            {"role": "user", "content": prompt},
-            {"role": "assistant", "content": answer, "sources": sources},
-        ])
-        st.session_state.messages = st.session_state.messages[-100:]
-        st.rerun()
     except Exception as exc:
         # Mensajes accionables, sin imprimir errores que puedan incluir secretos.
         kind = type(exc).__name__
@@ -194,7 +199,19 @@ if prompt and api_key:
             st.warning("La conexión tardó demasiado. Vuelve a enviar tu pregunta.")
         else:
             st.error("No se pudo completar la respuesta. Revisa la configuración del modelo y vuelve a intentarlo.")
+    else:
+        try:
+            st.session_state.memory.add_turn(prompt, answer)
+        except Exception:
+            st.error("JARVIS respondió, pero no se pudo confirmar el guardado en Supabase. Revisa la clave secreta y los permisos de la tabla; comprueba en Table Editor si se guardaron las filas antes de repetir la consulta.")
+            st.stop()
+        else:
+            st.session_state.messages.extend([
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": answer, "sources": sources},
+            ])
+            st.session_state.messages = st.session_state.messages[-100:]
+            st.rerun()
 
-if st.session_state.memory.persistence_error:
-    st.caption("El chat conserva el contexto en esta sesión, pero no pudo guardar el historial permanente.")
+st.caption("Historial leído desde Supabase." if not st.session_state.messages else "Historial guardado en Supabase.")
 st.markdown('<div class="page-foot"><span>J.A.R.V.I.S. · UNA PERSPECTIVA MÁS CLARA</span><i></i><span>HECHO PARA EXPLORAR</span></div>', unsafe_allow_html=True)
