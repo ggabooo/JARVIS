@@ -1,0 +1,7 @@
+streamlit==1.65.0
+groq==1.7.0
+supabase==2.32.0
+python-dotenv==1.2.4
+requests==2.34.2
+tzdata==2026.5
+httpx[socks]==0.28.1
