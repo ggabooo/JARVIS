@@ -15,7 +15,7 @@ from jarvis_agent import JarvisAgent
 
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
-st.set_page_config(page_title="J.A.R.V.I.S. | Agente económico", page_icon="◈", layout="wide",
+st.set_page_config(page_title="J.A.R.V.I.S. | Agente económico", page_icon="🧠", layout="wide",
                    initial_sidebar_state="expanded")
 st.markdown(f"<style>{(ROOT / 'assets/style.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 
@@ -48,11 +48,11 @@ def render_hero():
     else:
         logo = '<div class="core" aria-label="JARVIS"><span>J</span></div>'
     st.markdown(f"""
-    <div id="inicio" class="topline"><span class="home-label">CHAT PRINCIPAL</span><span class="top-index">ECONOMÍA / INTELIGENCIA</span></div>
+    <div id="inicio" class="topline"><span class="home-label">CHAT PRINCIPAL</span><span class="top-index">AGENTE ECONÓMICO</span></div>
     <section class="hero">
       <a class="logo-home" href="#inicio" aria-label="Ir al inicio del chat">{logo}</a>
       <div class="eyebrow">J.A.R.V.I.S.</div>
-      <h1>La economía, a un<br>mensaje de distancia.</h1>
+      <h1>Just a Rational Valuation <br>& Intelligent System</h1>
       <p>Explora indicadores, conecta ideas y entiende lo que mueve al mundo.<br>Tu agente económico, con Guatemala como punto de partida.</p>
       <div class="hero-rule"></div>
     </section>
