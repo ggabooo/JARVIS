@@ -51,7 +51,7 @@ def render_hero():
     <div id="inicio" class="topline"><span class="home-label">CHAT PRINCIPAL</span><span class="top-index">AGENTE ECONÓMICO</span></div>
     <section class="hero">
       <a class="logo-home" href="#inicio" aria-label="Ir al inicio del chat">{logo}</a>
-      <div class="eyebrow">J.A.R.V.I.S.</div>
+      <div class="eyebrow"></div>
       <h1>Just a Rational Valuation <br>& Intelligent System</h1>
       <p>Explora indicadores, conecta ideas y entiende lo que mueve al mundo.<br>Tu agente económico, con Guatemala como punto de partida.</p>
       <div class="hero-rule"></div>
@@ -103,9 +103,9 @@ if "messages" not in st.session_state:
     st.session_state.messages = st.session_state.memory.messages()
 
 with st.sidebar:
-    st.markdown('<div class="side-brand"><div class="side-mark">J</div><div><strong>JARVIS</strong><small>ECONOMIC INTELLIGENCE</small></div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="side-brand"><div class="side-mark">J</div><div><strong>J.A.R.V.I.S.</strong><small>Agente Económico</small></div></div>', unsafe_allow_html=True)
     st.button("Nueva conversación", icon=":material/add:", use_container_width=True, on_click=reset_chat)
-    st.markdown('<div class="side-section">EXPLORA LA ECONOMÍA</div>', unsafe_allow_html=True)
+    st.markdown('<div class="side-section">EXPLORADOR</div>', unsafe_allow_html=True)
     rubro = st.selectbox("Rubro", list(RUBROS), index=1)
     if rubro == "Divisas":
         base = st.selectbox("Moneda de origen", ["USD", "GTQ", "EUR", "MXN", "GBP", "CAD", "JPY"])
